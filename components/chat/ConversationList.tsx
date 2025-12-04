@@ -1,6 +1,7 @@
 'use client';
 
 import { useSession, signOut } from 'next-auth/react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface Conversation {
   id: string;
@@ -44,7 +45,16 @@ export function ConversationList({
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {conversations.length === 0 ? (
+        {isLoading ? (
+          <div className="p-4 space-y-3">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="space-y-2">
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-3 w-1/2" />
+              </div>
+            ))}
+          </div>
+        ) : conversations.length === 0 ? (
           <p className="p-4 text-sm text-gray-500 dark:text-gray-400">
             No conversations yet
           </p>

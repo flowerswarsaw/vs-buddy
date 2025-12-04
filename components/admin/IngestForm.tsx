@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, DragEvent } from 'react';
+import { toast } from 'sonner';
 
 interface IngestFormProps {
   onSuccess: () => void;
@@ -19,8 +20,6 @@ export function IngestForm({ onSuccess }: IngestFormProps) {
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<{ title: string; chunksCount: number } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -35,19 +34,16 @@ export function IngestForm({ onSuccess }: IngestFormProps) {
   };
 
   const handleFileSelect = (selectedFile: File) => {
-    setError(null);
-    setResult(null);
-
     // Validate file size
     if (selectedFile.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
-      setError(`File too large. Maximum size is ${MAX_FILE_SIZE_MB}MB`);
+      toast.error(`File too large. Maximum size is ${MAX_FILE_SIZE_MB}MB`);
       return;
     }
 
     // Validate file type
     const ext = selectedFile.name.split('.').pop()?.toLowerCase();
     if (!['txt', 'pdf', 'docx'].includes(ext || '')) {
-      setError('Unsupported file type. Supported: .txt, .pdf, .docx');
+      toast.error('Unsupported file type. Supported: .txt, .pdf, .docx');
       return;
     }
 
@@ -77,8 +73,6 @@ export function IngestForm({ onSuccess }: IngestFormProps) {
   const handlePasteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    setError(null);
-    setResult(null);
 
     try {
       const parsedTags = tags
@@ -102,16 +96,15 @@ export function IngestForm({ onSuccess }: IngestFormProps) {
       }
 
       const data = await res.json();
-      setResult({
-        title: data.document.title,
-        chunksCount: data.chunksCount,
-      });
+      toast.success(
+        `Successfully ingested "${data.document.title}" (${data.chunksCount} chunks)`
+      );
 
       resetForm();
       onSuccess();
     } catch (err) {
       console.error(err);
-      setError(err instanceof Error ? err.message : 'Failed to ingest document');
+      toast.error(err instanceof Error ? err.message : 'Failed to ingest document');
     } finally {
       setIsSubmitting(false);
     }
@@ -122,8 +115,6 @@ export function IngestForm({ onSuccess }: IngestFormProps) {
     if (!file) return;
 
     setIsSubmitting(true);
-    setError(null);
-    setResult(null);
 
     try {
       const formData = new FormData();
@@ -146,16 +137,15 @@ export function IngestForm({ onSuccess }: IngestFormProps) {
       }
 
       const data = await res.json();
-      setResult({
-        title: data.document.title,
-        chunksCount: data.chunksCount,
-      });
+      toast.success(
+        `Successfully uploaded "${data.document.title}" (${data.chunksCount} chunks)`
+      );
 
       resetForm();
       onSuccess();
     } catch (err) {
       console.error(err);
-      setError(err instanceof Error ? err.message : 'Failed to upload file');
+      toast.error(err instanceof Error ? err.message : 'Failed to upload file');
     } finally {
       setIsSubmitting(false);
     }
@@ -304,22 +294,6 @@ export function IngestForm({ onSuccess }: IngestFormProps) {
               className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
             />
             <p className="text-xs text-gray-500 mt-1">{text.length} characters</p>
-          </div>
-        )}
-
-        {/* Error */}
-        {error && (
-          <div className="p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg">
-            <p className="text-red-700 dark:text-red-300 text-sm">{error}</p>
-          </div>
-        )}
-
-        {/* Success */}
-        {result && (
-          <div className="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg p-3">
-            <p className="text-green-700 dark:text-green-300 text-sm">
-              Successfully ingested "{result.title}" ({result.chunksCount} chunks created)
-            </p>
           </div>
         )}
 

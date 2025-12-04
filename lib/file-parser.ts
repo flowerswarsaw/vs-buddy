@@ -1,4 +1,3 @@
-import pdf from 'pdf-parse';
 import mammoth from 'mammoth';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -39,8 +38,33 @@ async function parseTxt(buffer: ArrayBuffer): Promise<string> {
  * Parse a PDF file from ArrayBuffer
  */
 async function parsePdf(buffer: ArrayBuffer): Promise<string> {
-  const data = await pdf(Buffer.from(buffer));
-  return data.text;
+  // pdf-parse v2.4.5 uses a class-based API with getText() method
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { PDFParse } = require('pdf-parse');
+
+  // Convert ArrayBuffer to Uint8Array (required by PDFParse)
+  const uint8Array = new Uint8Array(buffer);
+
+  // Create parser instance with the PDF data
+  const parser = new PDFParse(uint8Array);
+
+  // Load the PDF document
+  await parser.load();
+
+  // Extract text from all pages
+  // getText() returns an object with { pages, text, total } properties
+  const result = await parser.getText();
+
+  // Clean up
+  parser.destroy();
+
+  // Extract the text property from the result
+  const text =
+    typeof result === 'string'
+      ? result
+      : (result as { text?: string }).text || '';
+
+  return text;
 }
 
 /**

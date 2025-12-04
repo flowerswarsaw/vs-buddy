@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { toast } from 'sonner';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface User {
   id: string;
@@ -13,7 +15,6 @@ interface User {
 export function UserManagement() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   // New user form state
   const [showForm, setShowForm] = useState(false);
@@ -36,7 +37,7 @@ export function UserManagement() {
       const data = await res.json();
       setUsers(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch users');
+      toast.error(err instanceof Error ? err.message : 'Failed to fetch users');
     } finally {
       setLoading(false);
     }
@@ -49,7 +50,6 @@ export function UserManagement() {
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
-    setError(null);
 
     try {
       const res = await fetch('/api/admin/users', {
@@ -63,6 +63,8 @@ export function UserManagement() {
         throw new Error(data.error || 'Failed to create user');
       }
 
+      toast.success(`User ${email} created successfully`);
+
       // Reset form and refresh list
       setEmail('');
       setName('');
@@ -71,7 +73,7 @@ export function UserManagement() {
       setShowForm(false);
       fetchUsers();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create user');
+      toast.error(err instanceof Error ? err.message : 'Failed to create user');
     } finally {
       setSubmitting(false);
     }
@@ -93,7 +95,6 @@ export function UserManagement() {
 
   const handleUpdateUser = async (id: string) => {
     setSubmitting(true);
-    setError(null);
 
     try {
       const body: { name?: string; role?: string; password?: string } = {
@@ -115,10 +116,11 @@ export function UserManagement() {
         throw new Error(data.error || 'Failed to update user');
       }
 
+      toast.success('User updated successfully');
       cancelEdit();
       fetchUsers();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update user');
+      toast.error(err instanceof Error ? err.message : 'Failed to update user');
     } finally {
       setSubmitting(false);
     }
@@ -137,17 +139,29 @@ export function UserManagement() {
         throw new Error(data.error || 'Failed to delete user');
       }
 
+      toast.success('User deleted successfully');
       fetchUsers();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete user');
+      toast.error(err instanceof Error ? err.message : 'Failed to delete user');
     }
   };
 
   if (loading) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-        <h2 className="text-lg font-semibold mb-4">User Management</h2>
-        <p className="text-gray-500">Loading users...</p>
+        <div className="flex items-center justify-between mb-4">
+          <Skeleton className="h-6 w-40" />
+          <Skeleton className="h-10 w-24" />
+        </div>
+        <div className="space-y-3">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="flex gap-4">
+              <Skeleton className="h-16 flex-1" />
+              <Skeleton className="h-16 w-32" />
+              <Skeleton className="h-16 w-24" />
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
@@ -163,12 +177,6 @@ export function UserManagement() {
           {showForm ? 'Cancel' : 'Add User'}
         </button>
       </div>
-
-      {error && (
-        <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg">
-          <p className="text-red-700 dark:text-red-300 text-sm">{error}</p>
-        </div>
-      )}
 
       {showForm && (
         <form onSubmit={handleCreateUser} className="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">

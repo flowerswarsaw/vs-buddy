@@ -1,107 +1,86 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { auth } from '@/lib/auth';
 import { hashPassword } from '@/lib/auth-utils';
+import { withAdminAuth } from '@/lib/api-utils';
+import { ValidationError } from '@/lib/errors';
 
 // GET /api/admin/users - List all users
-export async function GET() {
-  try {
-    const session = await auth();
-    if (!session?.user?.id || session.user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+export const GET = withAdminAuth(async () => {
+  const users = await prisma.user.findMany({
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+    orderBy: { createdAt: 'desc' },
+  });
 
-    const users = await prisma.user.findMany({
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    return NextResponse.json(users);
-  } catch (error) {
-    console.error('Error fetching users:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch users' },
-      { status: 500 }
-    );
-  }
-}
+  return NextResponse.json(users);
+});
 
 // POST /api/admin/users - Create a new user
-export async function POST(request: NextRequest) {
-  try {
-    const session = await auth();
-    if (!session?.user?.id || session.user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+export const POST = withAdminAuth(async (request: NextRequest, session) => {
+  const body = await request.json();
+  const { email, name, password, role = 'USER' } = body;
 
-    const body = await request.json();
-    const { email, name, password, role = 'USER' } = body;
-
-    // Validate inputs
-    if (!email || typeof email !== 'string') {
-      return NextResponse.json(
-        { error: 'Email is required' },
-        { status: 400 }
-      );
-    }
-
-    if (!password || typeof password !== 'string' || password.length < 8) {
-      return NextResponse.json(
-        { error: 'Password must be at least 8 characters' },
-        { status: 400 }
-      );
-    }
-
-    if (role !== 'USER' && role !== 'ADMIN') {
-      return NextResponse.json(
-        { error: 'Invalid role' },
-        { status: 400 }
-      );
-    }
-
-    // Check if email already exists
-    const existing = await prisma.user.findUnique({
-      where: { email: email.toLowerCase() },
+  // Validate inputs
+  if (!email || typeof email !== 'string') {
+    throw new ValidationError('Email is required', {
+      userId: session.user.id,
+      path: request.nextUrl.pathname,
+      method: request.method,
     });
-
-    if (existing) {
-      return NextResponse.json(
-        { error: 'Email already exists' },
-        { status: 400 }
-      );
-    }
-
-    // Create user
-    const passwordHash = await hashPassword(password);
-    const user = await prisma.user.create({
-      data: {
-        email: email.toLowerCase(),
-        name: name || null,
-        passwordHash,
-        role,
-      },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        createdAt: true,
-      },
-    });
-
-    return NextResponse.json(user);
-  } catch (error) {
-    console.error('Error creating user:', error);
-    return NextResponse.json(
-      { error: 'Failed to create user' },
-      { status: 500 }
-    );
   }
-}
+
+  if (!password || typeof password !== 'string' || password.length < 8) {
+    throw new ValidationError('Password must be at least 8 characters', {
+      userId: session.user.id,
+      path: request.nextUrl.pathname,
+      method: request.method,
+    });
+  }
+
+  if (role !== 'USER' && role !== 'ADMIN') {
+    throw new ValidationError('Invalid role', {
+      userId: session.user.id,
+      path: request.nextUrl.pathname,
+      method: request.method,
+    });
+  }
+
+  // Check if email already exists
+  const existing = await prisma.user.findUnique({
+    where: { email: email.toLowerCase() },
+  });
+
+  if (existing) {
+    throw new ValidationError('Email already exists', {
+      userId: session.user.id,
+      path: request.nextUrl.pathname,
+      method: request.method,
+    });
+  }
+
+  // Create user
+  const passwordHash = await hashPassword(password);
+  const user = await prisma.user.create({
+    data: {
+      email: email.toLowerCase(),
+      name: name || null,
+      passwordHash,
+      role,
+    },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      createdAt: true,
+    },
+  });
+
+  return NextResponse.json(user);
+});

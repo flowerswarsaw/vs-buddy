@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 
 interface Settings {
   id: string;
@@ -14,8 +15,6 @@ export function SettingsForm() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
 
   useEffect(() => {
     fetchSettings();
@@ -30,7 +29,7 @@ export function SettingsForm() {
       setSettings(data);
     } catch (err) {
       console.error(err);
-      setError('Failed to load settings');
+      toast.error('Failed to load settings');
     } finally {
       setIsLoading(false);
     }
@@ -41,8 +40,6 @@ export function SettingsForm() {
     if (!settings) return;
 
     setIsSaving(true);
-    setError(null);
-    setSuccess(false);
 
     try {
       const res = await fetch('/api/admin/settings', {
@@ -63,11 +60,10 @@ export function SettingsForm() {
 
       const data = await res.json();
       setSettings(data);
-      setSuccess(true);
-      setTimeout(() => setSuccess(false), 3000);
+      toast.success('Settings saved successfully!');
     } catch (err) {
       console.error(err);
-      setError(err instanceof Error ? err.message : 'Failed to save settings');
+      toast.error(err instanceof Error ? err.message : 'Failed to save settings');
     } finally {
       setIsSaving(false);
     }
@@ -154,14 +150,6 @@ export function SettingsForm() {
             </p>
           </div>
         </div>
-
-        {error && (
-          <p className="text-red-500 text-sm">{error}</p>
-        )}
-
-        {success && (
-          <p className="text-green-500 text-sm">Settings saved successfully!</p>
-        )}
 
         <button
           type="submit"

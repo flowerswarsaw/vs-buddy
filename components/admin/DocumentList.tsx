@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface Document {
   id: string;
@@ -110,7 +111,18 @@ export function DocumentList({ refreshTrigger }: DocumentListProps) {
   if (isLoading) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow">
-        <p className="text-gray-500">Loading documents...</p>
+        <Skeleton className="h-6 w-48 mb-4" />
+        <div className="space-y-3">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="flex gap-4">
+              <Skeleton className="h-10 flex-1" />
+              <Skeleton className="h-10 w-32" />
+              <Skeleton className="h-10 w-16" />
+              <Skeleton className="h-10 w-24" />
+              <Skeleton className="h-10 w-20" />
+            </div>
+          ))}
+        </div>
       </div>
     );
   }

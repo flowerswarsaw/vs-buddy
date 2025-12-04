@@ -1,13 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { auth } from '@/lib/auth';
+import { AuthError } from '@/lib/errors';
+import { handleApiError } from '@/lib/error-handler';
+import { validateRequestBody } from '@/lib/validation/validator';
+import { createConversationSchema } from '@/lib/validation/schemas';
+import { checkRateLimit, RateLimits } from '@/lib/rate-limit';
 
 // GET /api/conversations - List user's conversations
-export async function GET() {
+export async function GET(request: NextRequest) {
+  // Apply rate limiting for read operations
+  const rateLimitResponse = await checkRateLimit(request, RateLimits.READ);
+  if (rateLimitResponse) {
+    return rateLimitResponse;
+  }
+
+  const requestId = crypto.randomUUID();
+
   try {
     const session = await auth();
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      throw new AuthError('Unauthorized', undefined, { requestId });
     }
 
     const conversations = await prisma.conversation.findMany({
@@ -25,38 +38,60 @@ export async function GET() {
 
     return NextResponse.json(conversations);
   } catch (error) {
-    console.error('Error fetching conversations:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch conversations' },
-      { status: 500 }
-    );
+    return handleApiError(error, {
+      requestId,
+      userId: (await auth())?.user?.id,
+      path: '/api/conversations',
+      method: 'GET',
+    });
   }
 }
 
 // POST /api/conversations - Create a new conversation
 export async function POST(request: NextRequest) {
+  // Apply rate limiting for write operations
+  const rateLimitResponse = await checkRateLimit(request, RateLimits.READ);
+  if (rateLimitResponse) {
+    return rateLimitResponse;
+  }
+
+  const requestId = crypto.randomUUID();
+
   try {
     const session = await auth();
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      throw new AuthError('Unauthorized', undefined, { requestId });
     }
 
-    const body = await request.json().catch(() => ({}));
-    const { title } = body;
+    const userId = session.user.id;
+
+    // Validate and sanitize request body (optional title)
+    const validationResult = await validateRequestBody(
+      request,
+      createConversationSchema,
+      { requestId, userId }
+    );
+
+    if (!validationResult.success) {
+      throw validationResult.error;
+    }
+
+    const { title } = validationResult.data;
 
     const conversation = await prisma.conversation.create({
       data: {
         title: title || null,
-        userId: session.user.id,
+        userId,
       },
     });
 
     return NextResponse.json(conversation);
   } catch (error) {
-    console.error('Error creating conversation:', error);
-    return NextResponse.json(
-      { error: 'Failed to create conversation' },
-      { status: 500 }
-    );
+    return handleApiError(error, {
+      requestId,
+      userId: (await auth())?.user?.id,
+      path: '/api/conversations',
+      method: 'POST',
+    });
   }
 }

@@ -12,32 +12,44 @@ import {
 import { config } from '@/lib/config';
 import { auth } from '@/lib/auth';
 import type { ChatMessage, ChunkSearchResult } from '@/lib/types';
+import { AuthError, NotFoundError } from '@/lib/errors';
+import { handleApiError } from '@/lib/error-handler';
+import { validateRequestBody } from '@/lib/validation/validator';
+import { chatRequestSchema } from '@/lib/validation/schemas';
+import { checkRateLimit, RateLimits } from '@/lib/rate-limit';
+import { log } from '@/lib/logger';
+import { measurePerformance } from '@/lib/monitoring/performance-middleware';
+import { PerformanceTimer } from '@/lib/monitoring/metrics';
 
 // POST /api/chat - Send a message and get a response
 export async function POST(request: NextRequest) {
-  try {
+  return measurePerformance(request, async () => {
+    // Apply rate limiting
+    const rateLimitResponse = await checkRateLimit(request, RateLimits.CHAT);
+    if (rateLimitResponse) {
+      return rateLimitResponse;
+    }
+    const requestId = crypto.randomUUID();
+
+    try {
     const session = await auth();
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      throw new AuthError('Unauthorized', undefined, { requestId });
     }
 
-    const body = await request.json();
-    const { conversationId, message } = body;
+    const userId = session.user.id;
 
-    // Validate inputs
-    if (!conversationId || typeof conversationId !== 'string') {
-      return NextResponse.json(
-        { error: 'conversationId is required' },
-        { status: 400 }
-      );
+    // Validate and sanitize request body
+    const validationResult = await validateRequestBody(request, chatRequestSchema, {
+      requestId,
+      userId,
+    });
+
+    if (!validationResult.success) {
+      throw validationResult.error;
     }
 
-    if (!message || typeof message !== 'string' || message.trim().length === 0) {
-      return NextResponse.json(
-        { error: 'message is required and must be a non-empty string' },
-        { status: 400 }
-      );
-    }
+    const { conversationId, message } = validationResult.data;
 
     // Check conversation exists and user owns it
     const conversation = await prisma.conversation.findUnique({
@@ -45,18 +57,12 @@ export async function POST(request: NextRequest) {
     });
 
     if (!conversation) {
-      return NextResponse.json(
-        { error: 'Conversation not found' },
-        { status: 404 }
-      );
+      throw new NotFoundError('Conversation', { requestId, userId });
     }
 
     // Verify ownership
-    if (conversation.userId !== session.user.id) {
-      return NextResponse.json(
-        { error: 'Conversation not found' },
-        { status: 404 }
-      );
+    if (conversation.userId !== userId) {
+      throw new NotFoundError('Conversation', { requestId, userId });
     }
 
     // Get settings
@@ -87,21 +93,34 @@ export async function POST(request: NextRequest) {
 
     if (hasChunks) {
       try {
+        // Time embedding generation
+        const embeddingTimer = new PerformanceTimer('openai.embedding', {
+          requestId,
+        });
         const queryEmbedding = await embedText(message.trim());
+        embeddingTimer.end();
+
+        // Time RAG search
+        const searchTimer = new PerformanceTimer('rag.search', {
+          requestId,
+        });
         relevantChunks = await searchRelevantChunks(queryEmbedding, {
           topK: config.defaultTopK,
           minSimilarity: config.minSimilarity,
         });
+        const searchDuration = searchTimer.end();
 
         // Log retrieval stats for debugging
         const stats = getRetrievalStats(relevantChunks);
-        console.log(
-          `[RAG] Retrieved ${stats.count} chunks, ` +
-          `avg similarity: ${(stats.avgSimilarity * 100).toFixed(1)}%, ` +
-          `sources: ${stats.documents.join(', ') || 'none'}`
-        );
+        log.debug(`RAG retrieved ${stats.count} chunks in ${searchDuration}ms`, {
+          requestId,
+          count: stats.count,
+          avgSimilarity: (stats.avgSimilarity * 100).toFixed(1) + '%',
+          sources: stats.documents.join(', ') || 'none',
+          searchDuration,
+        });
       } catch (error) {
-        console.error('Error during RAG search:', error);
+        log.error('Error during RAG search', error, { requestId });
         // Continue without RAG context if search fails
       }
     }
@@ -134,11 +153,22 @@ export async function POST(request: NextRequest) {
       latestUserMessage: message.trim(),
     });
 
-    // Call OpenAI
+    // Call OpenAI with timing
+    const chatTimer = new PerformanceTimer('openai.chat', {
+      requestId,
+      model: settings.modelName,
+    });
     const assistantResponse = await chatCompletion(promptMessages, {
       model: settings.modelName,
       temperature: settings.temperature,
       maxTokens: settings.maxTokens,
+    });
+    const chatDuration = chatTimer.end();
+
+    log.debug(`OpenAI chat completed in ${chatDuration}ms`, {
+      requestId,
+      model: settings.modelName,
+      duration: chatDuration,
     });
 
     // Save assistant message
@@ -156,36 +186,21 @@ export async function POST(request: NextRequest) {
       data: { updatedAt: new Date() },
     });
 
-    return NextResponse.json({
-      message: {
-        id: assistantMessage.id,
-        role: assistantMessage.role,
-        content: assistantMessage.content,
-        createdAt: assistantMessage.createdAt,
-      },
-    });
-  } catch (error) {
-    console.error('Error in chat:', error);
-
-    // Check for OpenAI-specific errors
-    if (error instanceof Error) {
-      if (error.message.includes('API key')) {
-        return NextResponse.json(
-          { error: 'OpenAI API key is invalid or missing' },
-          { status: 500 }
-        );
-      }
-      if (error.message.includes('rate limit')) {
-        return NextResponse.json(
-          { error: 'Rate limit exceeded. Please try again later.' },
-          { status: 429 }
-        );
-      }
+      return NextResponse.json({
+        message: {
+          id: assistantMessage.id,
+          role: assistantMessage.role,
+          content: assistantMessage.content,
+          createdAt: assistantMessage.createdAt,
+        },
+      });
+    } catch (error) {
+      return handleApiError(error, {
+        requestId,
+        userId: (await auth())?.user?.id,
+        path: '/api/chat',
+        method: 'POST',
+      });
     }
-
-    return NextResponse.json(
-      { error: 'Failed to generate response' },
-      { status: 500 }
-    );
-  }
+  });
 }

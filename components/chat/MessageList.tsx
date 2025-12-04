@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface Message {
   id: string;
@@ -21,7 +22,20 @@ export function MessageList({ messages, isLoading }: MessageListProps) {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
 
-  if (messages.length === 0 && !isLoading) {
+  if (messages.length === 0) {
+    if (isLoading) {
+      return (
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className={`flex ${i % 2 === 0 ? 'justify-end' : 'justify-start'}`}>
+              <div className="max-w-[80%] space-y-2">
+                <Skeleton className="h-16 w-64" />
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center text-gray-500 dark:text-gray-400">
