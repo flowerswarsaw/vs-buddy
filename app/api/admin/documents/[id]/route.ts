@@ -1,21 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { withAdminAuth } from '@/lib/api-utils';
+import { withAdminAuth, RouteContext } from '@/lib/api-utils';
 import { NotFoundError, ValidationError } from '@/lib/errors';
 
-interface RouteContext {
-  params: Promise<{ id: string }>;
-}
-
 // GET /api/admin/documents/[id] - Get a single document with full details
-export const GET = withAdminAuth(async (
-  request: NextRequest,
+export const GET = withAdminAuth<unknown, { id: string }>(async (
+  request,
   session,
-  context?: RouteContext
+  context
 ) => {
   if (!context) {
     throw new ValidationError('Invalid route context', {
-      userId: session.user.id,
+      userId: session.user?.id,
       path: request.nextUrl.pathname,
       method: request.method,
     });
@@ -34,7 +30,7 @@ export const GET = withAdminAuth(async (
 
   if (!document) {
     throw new NotFoundError('Document', {
-      userId: session.user.id,
+      userId: session.user?.id,
       path: request.nextUrl.pathname,
       method: request.method,
     });
@@ -52,14 +48,14 @@ export const GET = withAdminAuth(async (
 });
 
 // PATCH /api/admin/documents/[id] - Update document metadata (title, tags)
-export const PATCH = withAdminAuth(async (
-  request: NextRequest,
+export const PATCH = withAdminAuth<unknown, { id: string }>(async (
+  request,
   session,
-  context?: RouteContext
+  context
 ) => {
   if (!context) {
     throw new ValidationError('Invalid route context', {
-      userId: session.user.id,
+      userId: session.user?.id,
       path: request.nextUrl.pathname,
       method: request.method,
     });
@@ -76,7 +72,7 @@ export const PATCH = withAdminAuth(async (
 
   if (!existing) {
     throw new NotFoundError('Document', {
-      userId: session.user.id,
+      userId: session.user?.id,
       path: request.nextUrl.pathname,
       method: request.method,
     });
@@ -88,7 +84,7 @@ export const PATCH = withAdminAuth(async (
   if (title !== undefined) {
     if (typeof title !== 'string' || title.trim().length === 0) {
       throw new ValidationError('Title must be a non-empty string', {
-        userId: session.user.id,
+        userId: session.user?.id,
         path: request.nextUrl.pathname,
         method: request.method,
       });
@@ -99,7 +95,7 @@ export const PATCH = withAdminAuth(async (
   if (tags !== undefined) {
     if (!Array.isArray(tags)) {
       throw new ValidationError('Tags must be an array', {
-        userId: session.user.id,
+        userId: session.user?.id,
         path: request.nextUrl.pathname,
         method: request.method,
       });
@@ -128,14 +124,14 @@ export const PATCH = withAdminAuth(async (
 });
 
 // DELETE /api/admin/documents/[id] - Delete a document (chunks cascade)
-export const DELETE = withAdminAuth(async (
-  request: NextRequest,
+export const DELETE = withAdminAuth<unknown, { id: string }>(async (
+  request,
   session,
-  context?: RouteContext
+  context
 ) => {
   if (!context) {
     throw new ValidationError('Invalid route context', {
-      userId: session.user.id,
+      userId: session.user?.id,
       path: request.nextUrl.pathname,
       method: request.method,
     });
@@ -150,7 +146,7 @@ export const DELETE = withAdminAuth(async (
 
   if (!existing) {
     throw new NotFoundError('Document', {
-      userId: session.user.id,
+      userId: session.user?.id,
       path: request.nextUrl.pathname,
       method: request.method,
     });

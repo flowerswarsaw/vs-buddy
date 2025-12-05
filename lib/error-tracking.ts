@@ -13,7 +13,7 @@ export function initSentry(options: {
   dsn?: string;
   environment?: string;
   tracesSampleRate?: number;
-  beforeSend?: Sentry.BeforeSendCallback;
+  beforeSend?: (event: Sentry.ErrorEvent, hint: Sentry.EventHint) => Sentry.ErrorEvent | null;
 }) {
   const dsn = options.dsn || process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN;
 

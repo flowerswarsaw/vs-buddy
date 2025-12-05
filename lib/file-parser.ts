@@ -71,7 +71,9 @@ async function parsePdf(buffer: ArrayBuffer): Promise<string> {
  * Parse a DOCX file from ArrayBuffer
  */
 async function parseDocx(buffer: ArrayBuffer): Promise<string> {
-  const result = await mammoth.extractRawText({ buffer });
+  // Convert ArrayBuffer to Buffer for mammoth
+  const nodeBuffer = Buffer.from(buffer);
+  const result = await mammoth.extractRawText({ buffer: nodeBuffer });
   return result.value;
 }
 

@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
           ErrorCode.VALIDATION_ERROR,
           400,
           true, // isOperational
-          { requestId, testData: 'operational' }
+          { requestId }
         );
 
         captureError(operationalError, {

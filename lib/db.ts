@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { DatabaseError, ErrorCode } from './errors';
+import { DatabaseError } from './errors';
 import { log } from './logger';
 
 const globalForPrisma = globalThis as unknown as {
@@ -45,9 +45,8 @@ export async function testDatabaseConnection(): Promise<boolean> {
     log.error('Database connection test failed', error);
     throw new DatabaseError(
       'Failed to connect to database',
-      ErrorCode.DATABASE_CONNECTION_ERROR,
       {},
-      error
+      error instanceof Error ? error : undefined
     );
   }
 }
@@ -99,32 +98,32 @@ export async function closeDatabaseConnection(): Promise<void> {
     log.error('Error closing database connection', error);
     throw new DatabaseError(
       'Failed to close database connection',
-      ErrorCode.DATABASE_CONNECTION_ERROR,
       {},
-      error
+      error instanceof Error ? error : undefined
     );
   }
 }
 
-// Handle process termination (Node.js runtime only)
-// Skip in Edge Runtime (middleware, edge functions)
-if (
-  typeof process !== 'undefined' &&
-  process.env.NODE_ENV === 'production' &&
-  typeof process.on === 'function'
-) {
-  try {
+// Register shutdown handlers only in Node.js runtime
+// This function is called lazily to avoid Edge Runtime issues
+export function registerShutdownHandlers(): void {
+  // Only run in Node.js environment (not Edge Runtime)
+  // EdgeRuntime is defined in Vercel Edge Runtime
+  if (typeof (globalThis as Record<string, unknown>).EdgeRuntime !== 'undefined') {
+    return;
+  }
+
+  if (
+    typeof process !== 'undefined' &&
+    process.env.NODE_ENV === 'production' &&
+    typeof process.on === 'function'
+  ) {
     process.on('SIGINT', async () => {
       await closeDatabaseConnection();
-      process.exit(0);
     });
 
     process.on('SIGTERM', async () => {
       await closeDatabaseConnection();
-      process.exit(0);
     });
-  } catch (error) {
-    // Ignore errors in Edge Runtime
-    log.warn('Could not register database process handlers (likely Edge Runtime)');
   }
 }
