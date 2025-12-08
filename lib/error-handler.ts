@@ -122,10 +122,35 @@ function handlePrismaError(
         context
       );
 
-    default:
-      // Generic database error
+    case 'P2010':
+      // Raw query failed - common with pgvector operations
+      // In development, show the actual error message
+      const rawErrorMessage = error.message || 'Raw database query failed';
       return new AppError(
-        'A database error occurred',
+        process.env.NODE_ENV === 'development'
+          ? rawErrorMessage
+          : 'A database error occurred',
+        ErrorCode.DATABASE_QUERY_ERROR,
+        500,
+        true,
+        {
+          ...context,
+          metadata: {
+            ...context.metadata,
+            prismaCode: code,
+            prismaMeta: meta,
+            rawError: rawErrorMessage,
+          },
+        }
+      );
+
+    default:
+      // Generic database error - show more info in development
+      const errorMessage = error.message || 'A database error occurred';
+      return new AppError(
+        process.env.NODE_ENV === 'development'
+          ? `Database error (${code}): ${errorMessage}`
+          : 'A database error occurred',
         ErrorCode.DATABASE_QUERY_ERROR,
         500,
         true,

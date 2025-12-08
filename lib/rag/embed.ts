@@ -1,10 +1,11 @@
-import { createEmbedding } from '../openai';
+import { getProvider } from '../llm';
 
 /**
  * Embed a single text string.
  */
 export async function embedText(text: string): Promise<number[]> {
-  const embeddings = await createEmbedding(text);
+  const provider = getProvider();
+  const embeddings = await provider.embed([text]);
   return embeddings[0];
 }
 
@@ -16,7 +17,8 @@ export async function embedTexts(texts: string[]): Promise<number[][]> {
   if (texts.length === 0) {
     return [];
   }
-  return createEmbedding(texts);
+  const provider = getProvider();
+  return provider.embed(texts);
 }
 
 /**

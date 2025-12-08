@@ -123,13 +123,7 @@ function getClientIdentifier(request: NextRequest): string {
     return realIp;
   }
 
-  // Fallback to request IP
-  const ip = request.ip;
-  if (ip) {
-    return ip;
-  }
-
-  // For local development, use a constant
+  // Fallback for local development
   return 'localhost';
 }
 

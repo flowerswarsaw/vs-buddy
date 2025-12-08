@@ -16,6 +16,12 @@ export enum ErrorCode {
   OPENAI_INVALID_REQUEST = 2004,
   OPENAI_AUTHENTICATION_ERROR = 2005,
 
+  // Ollama errors (25xx)
+  OLLAMA_API_ERROR = 2501,
+  OLLAMA_CONNECTION_ERROR = 2502,
+  OLLAMA_TIMEOUT = 2503,
+  OLLAMA_MODEL_NOT_FOUND = 2504,
+
   // Validation errors (3xxx)
   VALIDATION_ERROR = 3001,
   INVALID_INPUT = 3002,
@@ -124,6 +130,32 @@ export class OpenAIError extends AppError {
       message,
       code,
       statusCode,
+      true,
+      {
+        ...context,
+        metadata: {
+          ...context.metadata,
+          originalError: originalError?.message,
+        },
+      }
+    );
+  }
+}
+
+/**
+ * Ollama API-related errors
+ */
+export class OllamaError extends AppError {
+  constructor(
+    message: string,
+    code: ErrorCode = ErrorCode.OLLAMA_API_ERROR,
+    context: ErrorContext = {},
+    originalError?: Error
+  ) {
+    super(
+      message,
+      code,
+      500,
       true,
       {
         ...context,

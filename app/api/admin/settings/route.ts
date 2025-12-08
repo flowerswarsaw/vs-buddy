@@ -2,10 +2,38 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { withAdminAuth } from '@/lib/api-utils';
 import { ValidationError } from '@/lib/errors';
+import { config } from '@/lib/config';
+import { getProviderType } from '@/lib/llm';
+
+// Model options per provider
+const OLLAMA_MODELS = [
+  { value: 'llama3', label: 'Llama 3' },
+  { value: 'llama3:70b', label: 'Llama 3 70B' },
+  { value: 'mistral', label: 'Mistral' },
+  { value: 'codellama', label: 'Code Llama' },
+  { value: 'gemma2', label: 'Gemma 2' },
+];
+
+const OPENAI_MODELS = [
+  { value: 'gpt-4o-mini', label: 'GPT-4o Mini' },
+  { value: 'gpt-4o', label: 'GPT-4o' },
+  { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
+  { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' },
+];
+
+function getDefaultModel(): string {
+  const provider = getProviderType();
+  return provider === 'ollama' ? config.ollamaChatModel : 'gpt-4o-mini';
+}
+
+function getAvailableModels() {
+  const provider = getProviderType();
+  return provider === 'ollama' ? OLLAMA_MODELS : OPENAI_MODELS;
+}
 
 const DEFAULT_SETTINGS = {
   systemPrompt: `You are VS Buddy, an internal assistant for the company. Be helpful, concise, and practical. Answer questions based on the knowledge base provided to you.`,
-  modelName: 'gpt-4o-mini',
+  modelName: getDefaultModel(),
   temperature: 0.7,
   maxTokens: null,
 };
@@ -17,11 +45,19 @@ export const GET = withAdminAuth(async () => {
   if (!settings) {
     // Create default settings if none exist
     settings = await prisma.settings.create({
-      data: DEFAULT_SETTINGS,
+      data: {
+        ...DEFAULT_SETTINGS,
+        modelName: getDefaultModel(),
+      },
     });
   }
 
-  return NextResponse.json(settings);
+  // Return settings with provider info
+  return NextResponse.json({
+    ...settings,
+    provider: getProviderType(),
+    availableModels: getAvailableModels(),
+  });
 });
 
 // PUT /api/admin/settings - Update settings

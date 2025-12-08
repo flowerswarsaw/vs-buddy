@@ -1,7 +1,7 @@
 import type { ChatMessage, Settings, ChunkSearchResult } from '../types';
-import type OpenAI from 'openai';
+import type { LLMMessage } from '../llm';
 
-const DEFAULT_SYSTEM_PROMPT = `You are VS Buddy, an internal assistant. Be helpful, concise, and practical.`;
+const DEFAULT_SYSTEM_PROMPT = `You are VS Buddy, an internal assistant. Your primary job is to answer questions using the knowledge base provided to you. Be helpful, concise, and practical. Always check the provided context first before answering.`;
 
 const RAG_INSTRUCTIONS = `
 IMPORTANT INSTRUCTIONS:
@@ -27,7 +27,7 @@ interface BuildPromptParams {
 }
 
 interface BuiltPrompt {
-  messages: OpenAI.ChatCompletionMessageParam[];
+  messages: LLMMessage[];
 }
 
 /**
@@ -48,7 +48,7 @@ function formatContextWithSources(chunks: ChunkSearchResult[]): string {
 export function buildPrompt(params: BuildPromptParams): BuiltPrompt {
   const { systemPrompt, contextChunks, messages, latestUserMessage } = params;
 
-  const openaiMessages: OpenAI.ChatCompletionMessageParam[] = [];
+  const llmMessages: LLMMessage[] = [];
 
   // Build system message
   let systemContent = systemPrompt || DEFAULT_SYSTEM_PROMPT;
@@ -62,7 +62,7 @@ export function buildPrompt(params: BuildPromptParams): BuiltPrompt {
     systemContent += `\n\n${NO_CONTEXT_INSTRUCTIONS}`;
   }
 
-  openaiMessages.push({
+  llmMessages.push({
     role: 'system',
     content: systemContent,
   });
@@ -70,7 +70,7 @@ export function buildPrompt(params: BuildPromptParams): BuiltPrompt {
   // Add conversation history (excluding the latest message which we'll add separately)
   for (const msg of messages) {
     if (msg.role === 'user' || msg.role === 'assistant') {
-      openaiMessages.push({
+      llmMessages.push({
         role: msg.role,
         content: msg.content,
       });
@@ -78,12 +78,12 @@ export function buildPrompt(params: BuildPromptParams): BuiltPrompt {
   }
 
   // Add the latest user message
-  openaiMessages.push({
+  llmMessages.push({
     role: 'user',
     content: latestUserMessage,
   });
 
-  return { messages: openaiMessages };
+  return { messages: llmMessages };
 }
 
 /**

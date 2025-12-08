@@ -60,7 +60,7 @@ export function UserManagement() {
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || 'Failed to create user');
+        throw new Error(data.error?.message || 'Failed to create user');
       }
 
       toast.success(`User ${email} created successfully`);
@@ -113,7 +113,7 @@ export function UserManagement() {
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || 'Failed to update user');
+        throw new Error(data.error?.message || 'Failed to update user');
       }
 
       toast.success('User updated successfully');
@@ -136,7 +136,7 @@ export function UserManagement() {
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || 'Failed to delete user');
+        throw new Error(data.error?.message || 'Failed to delete user');
       }
 
       toast.success('User deleted successfully');

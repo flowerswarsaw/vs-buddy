@@ -45,6 +45,7 @@ export interface SearchOptions {
   minSimilarity?: number;
   tags?: string[];
   documentIds?: string[];
+  useCache?: boolean;
 }
 
 // API request/response types

@@ -89,12 +89,12 @@ model Document {
 }
 
 model Chunk {
-  id         String                      @id @default(cuid())
+  id         String                     @id @default(cuid())
   documentId String
-  content    String                      @db.Text
-  embedding  Unsupported("vector(1536)")
-  createdAt  DateTime                    @default(now())
-  document   Document                    @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  content    String                     @db.Text
+  embedding  Unsupported("vector(768)")
+  createdAt  DateTime                   @default(now())
+  document   Document                   @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
   @@index([documentId])
 }

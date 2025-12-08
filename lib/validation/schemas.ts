@@ -8,7 +8,9 @@ import { z } from 'zod';
 /**
  * Common validators
  */
-export const uuidSchema = z.string().uuid('Invalid UUID format');
+// Prisma uses CUIDs by default, not UUIDs
+export const cuidSchema = z.string().cuid('Invalid ID format');
+export const idSchema = cuidSchema; // Alias for clarity
 export const nonEmptyStringSchema = z.string().min(1, 'Cannot be empty').trim();
 export const emailSchema = z.string().email('Invalid email format');
 
@@ -16,7 +18,7 @@ export const emailSchema = z.string().email('Invalid email format');
  * Chat API schemas
  */
 export const chatRequestSchema = z.object({
-  conversationId: uuidSchema,
+  conversationId: idSchema,
   message: z
     .string()
     .min(1, 'Message cannot be empty')
@@ -40,7 +42,7 @@ export const createConversationSchema = z.object({
 export type CreateConversationRequest = z.infer<typeof createConversationSchema>;
 
 export const updateConversationSchema = z.object({
-  id: uuidSchema,
+  id: idSchema,
   title: z
     .string()
     .min(1, 'Title cannot be empty')
@@ -52,7 +54,7 @@ export const updateConversationSchema = z.object({
 export type UpdateConversationRequest = z.infer<typeof updateConversationSchema>;
 
 export const deleteConversationSchema = z.object({
-  id: uuidSchema,
+  id: idSchema,
 });
 
 export type DeleteConversationRequest = z.infer<typeof deleteConversationSchema>;
@@ -85,7 +87,7 @@ export const documentUploadSchema = z.object({
 export type DocumentUploadRequest = z.infer<typeof documentUploadSchema>;
 
 export const deleteDocumentSchema = z.object({
-  id: uuidSchema,
+  id: idSchema,
 });
 
 export type DeleteDocumentRequest = z.infer<typeof deleteDocumentSchema>;

@@ -10,8 +10,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { logRequest, logResponse, createChildLogger } from '@/lib/logger';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { auth } from '@/lib/auth';
 
 /**
  * Wrapper for API route handlers with automatic logging
@@ -42,7 +41,7 @@ export function withRequestLogging<T>(
     // Get user session for context
     let userId: string | undefined;
     try {
-      const session = await getServerSession(authOptions);
+      const session = await auth();
       userId = session?.user?.id;
     } catch {
       // Session retrieval failed, continue without user context

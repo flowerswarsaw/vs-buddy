@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { chatCompletion } from '@/lib/openai';
+import { getProvider, getProviderType } from '@/lib/llm';
 import {
   embedText,
   searchRelevantChunks,
@@ -94,8 +94,9 @@ export async function POST(request: NextRequest) {
     if (hasChunks) {
       try {
         // Time embedding generation
-        const embeddingTimer = new PerformanceTimer('openai.embedding', {
+        const embeddingTimer = new PerformanceTimer('llm.embedding', {
           requestId,
+          provider: getProviderType(),
         });
         const queryEmbedding = await embedText(message.trim());
         embeddingTimer.end();
@@ -110,12 +111,14 @@ export async function POST(request: NextRequest) {
         });
         const searchDuration = searchTimer.end();
 
-        // Log retrieval stats for debugging
+        // Log retrieval stats - INFO level so it's visible in production logs
         const stats = getRetrievalStats(relevantChunks);
-        log.debug(`RAG retrieved ${stats.count} chunks in ${searchDuration}ms`, {
+        log.info(`RAG search: ${stats.count} chunks found (threshold: ${config.minSimilarity * 100}%)`, {
           requestId,
-          count: stats.count,
-          avgSimilarity: (stats.avgSimilarity * 100).toFixed(1) + '%',
+          threshold: config.minSimilarity,
+          chunksFound: stats.count,
+          avgSimilarity: stats.count > 0 ? (stats.avgSimilarity * 100).toFixed(1) + '%' : 'N/A',
+          topSimilarity: stats.count > 0 ? (stats.maxSimilarity * 100).toFixed(1) + '%' : 'N/A',
           sources: stats.documents.join(', ') || 'none',
           searchDuration,
         });
@@ -153,20 +156,24 @@ export async function POST(request: NextRequest) {
       latestUserMessage: message.trim(),
     });
 
-    // Call OpenAI with timing
-    const chatTimer = new PerformanceTimer('openai.chat', {
+    // Call LLM provider with timing
+    const provider = getProvider();
+    const providerType = getProviderType();
+    const chatTimer = new PerformanceTimer('llm.chat', {
       requestId,
+      provider: providerType,
       model: settings.modelName,
     });
-    const assistantResponse = await chatCompletion(promptMessages, {
+    const assistantResponse = await provider.chat(promptMessages, {
       model: settings.modelName,
       temperature: settings.temperature,
-      maxTokens: settings.maxTokens,
+      maxTokens: settings.maxTokens ?? undefined,
     });
     const chatDuration = chatTimer.end();
 
-    log.debug(`OpenAI chat completed in ${chatDuration}ms`, {
+    log.debug(`LLM chat completed in ${chatDuration}ms`, {
       requestId,
+      provider: providerType,
       model: settings.modelName,
       duration: chatDuration,
     });

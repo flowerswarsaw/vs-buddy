@@ -75,7 +75,7 @@ export function DocumentList({ refreshTrigger }: DocumentListProps) {
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || 'Failed to update document');
+        throw new Error(data.error?.message || 'Failed to update document');
       }
 
       cancelEdit();
@@ -99,7 +99,7 @@ export function DocumentList({ refreshTrigger }: DocumentListProps) {
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || 'Failed to delete document');
+        throw new Error(data.error?.message || 'Failed to delete document');
       }
 
       fetchDocuments();

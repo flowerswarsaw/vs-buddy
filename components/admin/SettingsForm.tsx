@@ -3,16 +3,25 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 
+interface ModelOption {
+  value: string;
+  label: string;
+}
+
 interface Settings {
   id: string;
   systemPrompt: string;
   modelName: string;
   temperature: number;
   maxTokens: number | null;
+  provider?: string;
+  availableModels?: ModelOption[];
 }
 
 export function SettingsForm() {
   const [settings, setSettings] = useState<Settings | null>(null);
+  const [provider, setProvider] = useState<string>('');
+  const [availableModels, setAvailableModels] = useState<ModelOption[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -26,7 +35,19 @@ export function SettingsForm() {
       const res = await fetch('/api/admin/settings');
       if (!res.ok) throw new Error('Failed to fetch settings');
       const data = await res.json();
-      setSettings(data);
+
+      // Extract provider info
+      setProvider(data.provider || 'unknown');
+      setAvailableModels(data.availableModels || []);
+
+      // Set settings without provider metadata
+      setSettings({
+        id: data.id,
+        systemPrompt: data.systemPrompt,
+        modelName: data.modelName,
+        temperature: data.temperature,
+        maxTokens: data.maxTokens,
+      });
     } catch (err) {
       console.error(err);
       toast.error('Failed to load settings');
@@ -55,7 +76,7 @@ export function SettingsForm() {
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || 'Failed to save settings');
+        throw new Error(data.error?.message || 'Failed to save settings');
       }
 
       const data = await res.json();
@@ -87,7 +108,16 @@ export function SettingsForm() {
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow">
-      <h2 className="text-lg font-semibold mb-4">Settings</h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-semibold">Settings</h2>
+        <span className={`px-3 py-1 text-xs font-medium rounded-full ${
+          provider === 'ollama'
+            ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+            : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+        }`}>
+          {provider === 'ollama' ? 'Ollama' : 'OpenAI'}
+        </span>
+      </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
@@ -111,7 +141,7 @@ export function SettingsForm() {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium mb-1">
-              Model Name
+              Model
             </label>
             <select
               value={settings.modelName}
@@ -120,11 +150,15 @@ export function SettingsForm() {
               }
               className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="gpt-4o-mini">gpt-4o-mini</option>
-              <option value="gpt-4o">gpt-4o</option>
-              <option value="gpt-4-turbo">gpt-4-turbo</option>
-              <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
+              {availableModels.map((model) => (
+                <option key={model.value} value={model.value}>
+                  {model.label}
+                </option>
+              ))}
             </select>
+            <p className="text-xs text-gray-500 mt-1">
+              Using {provider === 'ollama' ? 'Ollama' : 'OpenAI'} provider
+            </p>
           </div>
 
           <div>

@@ -92,7 +92,7 @@ export function IngestForm({ onSuccess }: IngestFormProps) {
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || 'Failed to ingest document');
+        throw new Error(data.error?.message || 'Failed to ingest document');
       }
 
       const data = await res.json();
@@ -133,7 +133,7 @@ export function IngestForm({ onSuccess }: IngestFormProps) {
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || 'Failed to upload file');
+        throw new Error(data.error?.message || 'Failed to upload file');
       }
 
       const data = await res.json();

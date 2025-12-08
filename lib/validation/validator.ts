@@ -29,11 +29,11 @@ export function validate<T>(
   } catch (error) {
     if (error instanceof ZodError) {
       // Format Zod errors into readable messages
-      const errors = error.errors || [];
-      const messages = errors.length > 0
-        ? errors.map((err) => {
-            const path = err.path.join('.');
-            return path ? `${path}: ${err.message}` : err.message;
+      const issues = error.issues || [];
+      const messages = issues.length > 0
+        ? issues.map((issue) => {
+            const path = issue.path.join('.');
+            return path ? `${path}: ${issue.message}` : issue.message;
           })
         : [error.message || 'Validation failed'];
 
@@ -45,7 +45,7 @@ export function validate<T>(
             ...context,
             metadata: {
               ...context?.metadata,
-              validationErrors: errors,
+              validationErrors: issues,
             },
           }
         ),
@@ -175,11 +175,11 @@ export function sanitizeObject<T extends Record<string, any>>(obj: T): T {
     } else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
       sanitized[key] = sanitizeObject(value) as any;
     } else if (Array.isArray(value)) {
-      sanitized[key] = value.map((item) =>
+      sanitized[key] = value.map((item: unknown) =>
         typeof item === 'string'
           ? sanitizeString(item)
           : typeof item === 'object' && item !== null
-          ? sanitizeObject(item)
+          ? sanitizeObject(item as Record<string, unknown>)
           : item
       ) as any;
     }

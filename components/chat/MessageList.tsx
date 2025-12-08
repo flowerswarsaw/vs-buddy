@@ -2,12 +2,14 @@
 
 import { useEffect, useRef } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { MessageActions } from './MessageActions';
 
 interface Message {
   id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
   createdAt: string;
+  isStreaming?: boolean;
 }
 
 interface MessageListProps {
@@ -55,14 +57,24 @@ export function MessageList({ messages, isLoading }: MessageListProps) {
             message.role === 'user' ? 'justify-end' : 'justify-start'
           }`}
         >
-          <div
-            className={`max-w-[80%] rounded-lg px-4 py-2 ${
-              message.role === 'user'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100'
-            }`}
-          >
-            <p className="whitespace-pre-wrap break-words">{message.content}</p>
+          <div className="group max-w-[80%]">
+            <div
+              className={`rounded-lg px-4 py-2 ${
+                message.role === 'user'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100'
+              }`}
+            >
+              <p className="whitespace-pre-wrap break-words">
+                {message.content}
+                {message.isStreaming && (
+                  <span className="inline-block w-2 h-4 ml-0.5 bg-current animate-pulse" />
+                )}
+              </p>
+            </div>
+            {!message.isStreaming && message.content && (
+              <MessageActions content={message.content} createdAt={message.createdAt} />
+            )}
           </div>
         </div>
       ))}

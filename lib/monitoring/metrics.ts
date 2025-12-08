@@ -188,7 +188,7 @@ export function withPerformanceTracking<T extends (...args: any[]) => Promise<an
   fn: T,
   getTags?: (...args: Parameters<T>) => Record<string, string>
 ): T {
-  return (async (...args: any[]) => {
+  return (async (...args: Parameters<T>) => {
     const timer = new PerformanceTimer(
       name,
       getTags ? getTags(...args) : undefined
